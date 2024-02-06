@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import sys
 import numpy as np
 import pandas as pd
 from scipy import stats
@@ -27,9 +27,10 @@ from functools import wraps
 
 from . import utils
 from . import performance as perf
+#from . import plot_cn_name_map
+#cname = plot_cn_name_map.cname
 
 DECIMAL_TO_BPS = 10000
-
 
 def customize(func):
     """
@@ -39,11 +40,20 @@ def customize(func):
     @wraps(func)
     def call_w_context(*args, **kwargs):
         set_context = kwargs.pop("set_context", True)
+
+        # 當tears函數未設定或設定set_context=True時套用以下rcParams的設定。
         if set_context:
             color_palette = sns.color_palette("colorblind")
+
+            # Use the function as a context manager to temporarily change the style of your plots:
             with plotting_context(), axes_style(), color_palette:
                 sns.despine(left=True)
+                plt.rcParams['axes.unicode_minus'] = False                 # 20230823 (by MRC) 負號顯示問題
+                #plt.rcParams['font.sans-serif'] = ['Arial Unicode MS']     # 20230823 (by MRC) 中文顯示問題
+
                 return func(*args, **kwargs)
+
+        # 當tears函數設定set_context=False時使用者可自行在IDE中設定rcParams
         else:
             return func(*args, **kwargs)
 
@@ -124,7 +134,11 @@ def axes_style(style="darkgrid", rc=None):
     if rc is None:
         rc = {}
 
-    rc_default = {}
+    # 20230823 (by MRC) 中文顯示問題
+    # plt.rcParams預設是['Arial', 'DejaVu Sans', 'Liberation Sans', 'Bitstream Vera Sans', 'sans-serif']
+    # windows可以修改為Microsoft JhengHei、mingliu、'Arial Unicode MS'、或 DFKai-SB
+    # Mac可設為'Arial Unicode MS'
+    rc_default = {"font.sans-serif": ['Arial Unicode MS']}
 
     # Add defaults if they do not exist
     for name, val in rc_default.items():
@@ -132,10 +146,30 @@ def axes_style(style="darkgrid", rc=None):
 
     return sns.axes_style(style=style, rc=rc)
 
+# 20231010 modify by yo
+def transfer_chinese(cnm):
+    """
+    Decorator to set transfer_chinese during function call.
+    """
+    def call_set_language(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
 
-def plot_returns_table(alpha_beta, mean_ret_quantile, mean_ret_spread_quantile):
+            set_context = kwargs.pop("set_chinese_name", False)
+
+            if set_context:                   
+                return func(cname=cnm,*args,**kwargs)
+            else:  
+                return func(*args, **kwargs) 
+        return wrapper
+    return call_set_language
+
+
+def plot_returns_table(
+    alpha_beta, mean_ret_quantile, mean_ret_spread_quantile
+):
     returns_table = pd.DataFrame()
-    returns_table = pd.concat([returns_table, alpha_beta])
+    returns_table = returns_table.append(alpha_beta)
     returns_table.loc["Mean Period Wise Return Top Quantile (bps)"] = (
         mean_ret_quantile.iloc[-1] * DECIMAL_TO_BPS
     )
@@ -153,13 +187,13 @@ def plot_returns_table(alpha_beta, mean_ret_quantile, mean_ret_spread_quantile):
 def plot_turnover_table(autocorrelation_data, quantile_turnover):
     turnover_table = pd.DataFrame()
     for period in sorted(quantile_turnover.keys()):
-        for quantile, p_data in quantile_turnover[period].items():
+        for quantile, p_data in quantile_turnover[period].iteritems():
             turnover_table.loc[
                 "Quantile {} Mean Turnover ".format(quantile),
                 "{}D".format(period),
             ] = p_data.mean()
     auto_corr = pd.DataFrame()
-    for period, p_data in autocorrelation_data.items():
+    for period, p_data in autocorrelation_data.iteritems():
         auto_corr.loc[
             "Mean Factor Rank Autocorrelation", "{}D".format(period)
         ] = p_data.mean()
@@ -195,8 +229,7 @@ def plot_quantile_statistics_table(factor_data):
     print("Quantiles Statistics")
     utils.print_table(quantile_stats)
 
-
-def plot_ic_ts(ic, ax=None):
+def plot_ic_ts(ic, ax=None, cname=None):
     """
     Plots Spearman Rank Information Coefficient and IC moving
     average for a given factor.
@@ -221,16 +254,29 @@ def plot_ic_ts(ic, ax=None):
         ax = np.asarray([ax]).flatten()
 
     ymin, ymax = (None, None)
-    for a, (period_num, ic) in zip(ax, ic.items()):
+    for a, (period_num, ic) in zip(ax, ic.iteritems()):
         ic.plot(alpha=0.7, ax=a, lw=0.7, color="steelblue")
-        ic.rolling(window=22).mean().plot(ax=a, color="forestgreen", lw=2, alpha=0.8)
+        ic.rolling(window=22).mean().plot(
+            ax=a, color="forestgreen", lw=2, alpha=0.8
+        )
 
         a.set(ylabel="IC", xlabel="")
         a.set_title(
-            "{} Period Forward Return Information Coefficient (IC)".format(period_num)
+            "{} Period Forward Return Information Coefficient (IC)".format(
+                period_num
+            )
         )
         a.axhline(0.0, linestyle="-", color="black", lw=1, alpha=0.8)
-        a.legend(["IC", "1 month moving avg"], loc="upper right")
+
+        # 20230829 (by MRC) put the legend outside the plot
+        # a.legend(["IC", "1 month moving avg"], loc="upper right")
+
+        if cname:
+            _name = sys._getframe(0).f_code.co_name
+            a.set_ylabel(cname[_name]['ylabel'])
+            a.set_xlabel(cname[_name]['xlabel'])
+            a.set_title(cname[_name]['title'].format(period_num))        
+
         a.text(
             0.05,
             0.95,
@@ -248,10 +294,16 @@ def plot_ic_ts(ic, ax=None):
     for a in ax:
         a.set_ylim([ymin, ymax])
 
+        # 20230829 (by MRC) put the legend outside the plot
+        a.legend(["IC", "1 month moving avg"],
+                  loc='upper left',
+                  bbox_to_anchor=(1, 1)
+                  )
+
     return ax
 
 
-def plot_ic_hist(ic, ax=None):
+def plot_ic_hist(ic, ax=None, cname=None):
     """
     Plots Spearman Rank Information Coefficient histogram for a given factor.
 
@@ -278,7 +330,7 @@ def plot_ic_hist(ic, ax=None):
         f, ax = plt.subplots(v_spaces, 3, figsize=(18, v_spaces * 6))
         ax = ax.flatten()
 
-    for a, (period_num, ic) in zip(ax, ic.items()):
+    for a, (period_num, ic) in zip(ax, ic.iteritems()):
         sns.histplot(ic.replace(np.nan, 0.0), kde=True, ax=a)
         a.set(title="%s Period IC" % period_num, xlabel="IC")
         a.set_xlim([-1, 1])
@@ -292,6 +344,12 @@ def plot_ic_hist(ic, ax=None):
             verticalalignment="top",
         )
         a.axvline(ic.mean(), color="w", linestyle="dashed", linewidth=2)
+        
+        if cname:
+            _name = sys._getframe(0).f_code.co_name
+            a.set_ylabel(cname[_name]['ylabel'])
+            a.set_xlabel(cname[_name]['xlabel'])
+            a.set_title(cname[_name]['title'].format(period_num))     
 
     if num_plots < len(ax):
         ax[-1].set_visible(False)
@@ -299,7 +357,7 @@ def plot_ic_hist(ic, ax=None):
     return ax
 
 
-def plot_ic_qq(ic, theoretical_dist=stats.norm, ax=None):
+def plot_ic_qq(ic, theoretical_dist=stats.norm, ax=None, cname=None):
     """
     Plots Spearman Rank Information Coefficient "Q-Q" plot relative to
     a theoretical distribution.
@@ -336,8 +394,8 @@ def plot_ic_qq(ic, theoretical_dist=stats.norm, ax=None):
         dist_name = "T"
     else:
         dist_name = "Theoretical"
-
-    for a, (period_num, ic) in zip(ax, ic.items()):
+    
+    for a, (period_num, ic) in zip(ax, ic.iteritems()):
         sm.qqplot(
             ic.replace(np.nan, 0.0).values,
             theoretical_dist,
@@ -350,12 +408,25 @@ def plot_ic_qq(ic, theoretical_dist=stats.norm, ax=None):
             ylabel="Observed Quantile",
             xlabel="{} Distribution Quantile".format(dist_name),
         )
+        if cname:
+
+            if isinstance(theoretical_dist, stats.norm.__class__):
+                dist_name = "常態"
+            elif isinstance(theoretical_dist, stats.t.__class__):
+                dist_name = "T"
+            else:
+                dist_name = "理論"
+
+            _name = sys._getframe(0).f_code.co_name
+            a.set_ylabel(cname[_name]['ylabel'])
+            a.set_xlabel(cname[_name]['xlabel'].format(dist_name))
+            a.set_title(cname[_name]['title'].format(period_num,dist_name))  
 
     return ax
 
 
 def plot_quantile_returns_bar(
-    mean_ret_by_q, by_group=False, ylim_percentiles=None, ax=None
+    mean_ret_by_q, by_group=False, ylim_percentiles=None, ax=None, cname=None,
 ):
     """
     Plots mean period wise returns for factor quantiles.
@@ -381,10 +452,12 @@ def plot_quantile_returns_bar(
 
     if ylim_percentiles is not None:
         ymin = (
-            np.nanpercentile(mean_ret_by_q.values, ylim_percentiles[0]) * DECIMAL_TO_BPS
+            np.nanpercentile(mean_ret_by_q.values, ylim_percentiles[0])
+            * DECIMAL_TO_BPS
         )
         ymax = (
-            np.nanpercentile(mean_ret_by_q.values, ylim_percentiles[1]) * DECIMAL_TO_BPS
+            np.nanpercentile(mean_ret_by_q.values, ylim_percentiles[1])
+            * DECIMAL_TO_BPS
         )
     else:
         ymin = None
@@ -413,8 +486,19 @@ def plot_quantile_returns_bar(
 
             a.set(xlabel="", ylabel="Mean Return (bps)", ylim=(ymin, ymax))
 
+            # 20230829 (by MRC) put the legend outside the plot
+            a.legend(bbox_to_anchor=(1, 1),
+                     loc='upper left')
+
         if num_group < len(ax):
             ax[-1].set_visible(False)
+
+        # 20231010 modify to show chinese name(yo)
+        if cname:
+             _name = sys._getframe(0).f_code.co_name
+             ax.set_ylabel(cname[_name]['ylabel'])
+             ax.set_xlabel(cname[_name]['xlabel'])
+             ax.set_title(cname[_name]['title']) 
 
         return ax
 
@@ -430,11 +514,20 @@ def plot_quantile_returns_bar(
             )
         )
         ax.set(xlabel="", ylabel="Mean Return (bps)", ylim=(ymin, ymax))
-
+        
+        # 20231010 modify to show chinese name(yo)
+        if cname:
+             _name = sys._getframe(0).f_code.co_name
+             ax.set_ylabel(cname[_name]['ylabel'])
+             ax.set_xlabel(cname[_name]['xlabel'])
+             ax.set_title(cname[_name]['title'])         
+        # 20230829 (by MRC) put the legend outside the plot
+        ax.legend(loc='upper left', bbox_to_anchor=(1, 1))  
+ 
         return ax
 
 
-def plot_quantile_returns_violin(return_by_q, ylim_percentiles=None, ax=None):
+def plot_quantile_returns_violin(return_by_q, ylim_percentiles=None, ax=None , cname=None):
     """
     Plots a violin box plot of period wise returns for factor quantiles.
 
@@ -458,10 +551,12 @@ def plot_quantile_returns_violin(return_by_q, ylim_percentiles=None, ax=None):
 
     if ylim_percentiles is not None:
         ymin = (
-            np.nanpercentile(return_by_q.values, ylim_percentiles[0]) * DECIMAL_TO_BPS
+            np.nanpercentile(return_by_q.values, ylim_percentiles[0])
+            * DECIMAL_TO_BPS
         )
         ymax = (
-            np.nanpercentile(return_by_q.values, ylim_percentiles[1]) * DECIMAL_TO_BPS
+            np.nanpercentile(return_by_q.values, ylim_percentiles[1])
+            * DECIMAL_TO_BPS
         )
     else:
         ymin = None
@@ -495,11 +590,19 @@ def plot_quantile_returns_violin(return_by_q, ylim_percentiles=None, ax=None):
 
     ax.axhline(0.0, linestyle="-", color="black", lw=0.7, alpha=0.6)
 
+    # 20230829 (by MRC) put the legend outside the plot
+    ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    
+    if cname:
+        _name = sys._getframe(0).f_code.co_name
+        ax.set_ylabel(cname[_name]['ylabel'])
+        ax.set_xlabel(cname[_name]['xlabel'])
+        ax.set_title(cname[_name]['title'])     
     return ax
 
 
 def plot_mean_quantile_returns_spread_time_series(
-    mean_returns_spread, std_err=None, bandwidth=1, ax=None
+    mean_returns_spread, std_err=None, bandwidth=1, ax=None, cname=None,
 ):
     """
     Plots mean period wise returns for factor quantiles.
@@ -528,11 +631,11 @@ def plot_mean_quantile_returns_spread_time_series(
 
         ymin, ymax = (None, None)
         for (i, a), (name, fr_column) in zip(
-            enumerate(ax), mean_returns_spread.items()
+            enumerate(ax), mean_returns_spread.iteritems()
         ):
             stdn = None if std_err is None else std_err[name]
             a = plot_mean_quantile_returns_spread_time_series(
-                fr_column, std_err=stdn, ax=a
+                fr_column, std_err=stdn, ax=a, cname=cname
             )
             ax[i] = a
             curr_ymin, curr_ymax = a.get_ylim()
@@ -546,13 +649,15 @@ def plot_mean_quantile_returns_spread_time_series(
 
     if mean_returns_spread.isnull().all():
         return ax
-
+    
     periods = mean_returns_spread.name
+
     title = (
         "Top Minus Bottom Quantile Mean Return "
-        "({} Period Forward Return)".format(periods if periods is not None else "")
+        "({} Period Forward Return)".format(
+        periods if periods is not None else ""
+        )
     )
-
     if ax is None:
         f, ax = plt.subplots(figsize=(18, 6))
 
@@ -562,7 +667,12 @@ def plot_mean_quantile_returns_spread_time_series(
     mean_returns_spread_bps.rolling(window=22).mean().plot(
         color="orangered", alpha=0.7, ax=ax
     )
-    ax.legend(["mean returns spread", "1 month moving avg"], loc="upper right")
+
+    # 20230829 (by MRC) put the legend outside the plot
+    # ax.legend(["mean returns spread", "1 month moving avg"], loc="upper right")
+    ax.legend(["mean returns spread", "1 month moving avg"],
+               loc='upper left',
+               bbox_to_anchor=(1, 1))
 
     if std_err is not None:
         std_err_bps = std_err * DECIMAL_TO_BPS
@@ -574,21 +684,27 @@ def plot_mean_quantile_returns_spread_time_series(
             upper,
             alpha=0.3,
             color="steelblue",
-        )
-
+        )   
     ylim = np.nanpercentile(abs(mean_returns_spread_bps.values), 95)
     ax.set(
         ylabel="Difference In Quantile Mean Return (bps)",
         xlabel="",
         title=title,
         ylim=(-ylim, ylim),
-    )
+    )   
+
     ax.axhline(0.0, linestyle="-", color="black", lw=1, alpha=0.8)
+   
+    if cname:
+        _name = sys._getframe(0).f_code.co_name
+        ax.set_ylabel(cname[_name]['ylabel'])
+        ax.set_xlabel(cname[_name]['xlabel'])
+        ax.set_title(cname[_name]['title'].format(periods))
 
     return ax
 
 
-def plot_ic_by_group(ic_group, ax=None):
+def plot_ic_by_group(ic_group, ax=None, cname=None):
     """
     Plots Spearman Rank Information Coefficient for a given factor over
     provided forward returns. Separates by group.
@@ -612,10 +728,21 @@ def plot_ic_by_group(ic_group, ax=None):
     ax.set(title="Information Coefficient By Group", xlabel="")
     ax.set_xticklabels(ic_group.index, rotation=45)
 
+    # 20230829 (by MRC) put the legend outside the plot
+    ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+   
+    if cname:
+        _name = sys._getframe(0).f_code.co_name
+        ax.set_ylabel(cname[_name]['ylabel'])
+        ax.set_xlabel(cname[_name]['xlabel'])
+        ax.set_title(cname[_name]['title']) 
+
     return ax
 
 
-def plot_factor_rank_auto_correlation(factor_autocorrelation, period=1, ax=None):
+def plot_factor_rank_auto_correlation(
+    factor_autocorrelation, period=1, ax=None, cname=None
+):
     """
     Plots factor rank autocorrelation over time.
     See factor_rank_autocorrelation for more details.
@@ -652,11 +779,16 @@ def plot_factor_rank_auto_correlation(factor_autocorrelation, period=1, ax=None)
         transform=ax.transAxes,
         verticalalignment="top",
     )
+    if cname:
+        _name = sys._getframe(0).f_code.co_name
+        ax.set_ylabel(cname[_name]['ylabel'])
+        ax.set_xlabel(cname[_name]['xlabel'])
+        ax.set_title(cname[_name]['title'].format(period)) 
 
     return ax
 
 
-def plot_top_bottom_quantile_turnover(quantile_turnover, period=1, ax=None):
+def plot_top_bottom_quantile_turnover(quantile_turnover, period=1, ax=None, cname=None):
     """
     Plots period wise top and bottom quantile factor turnover.
 
@@ -690,10 +822,20 @@ def plot_top_bottom_quantile_turnover(quantile_turnover, period=1, ax=None):
     )
     ax.set(ylabel="Proportion Of Names New To Quantile", xlabel="")
 
+    # 20230829 (by MRC) put the legend outside the plot
+    ax.legend(loc='upper left',
+              bbox_to_anchor=(1, 1))
+
+    if cname:
+        _name = sys._getframe(0).f_code.co_name
+        ax.set_ylabel(cname[_name]['ylabel'])
+        ax.set_xlabel(cname[_name]['xlabel'])
+        ax.set_title(cname[_name]['title'].format(period)) 
+    
     return ax
 
 
-def plot_monthly_ic_heatmap(mean_monthly_ic, ax=None):
+def plot_monthly_ic_heatmap(mean_monthly_ic, ax=None, cname=None):
     """
     Plots a heatmap of the information coefficient or returns by month.
 
@@ -712,10 +854,16 @@ def plot_monthly_ic_heatmap(mean_monthly_ic, ax=None):
 
     num_plots = len(mean_monthly_ic.columns)
 
-    v_spaces = ((num_plots - 1) // 3) + 1
+    # 20230823 (by MRC)
+    # v_spaces = ((num_plots - 1) // 3) + 1
+    v_spaces = num_plots
 
     if ax is None:
-        f, ax = plt.subplots(v_spaces, 3, figsize=(18, v_spaces * 6))
+        # 20230823 (by MRC) ncols 3->1，同時調整dpi及figsize，避免圖形太模糊。
+        #f, ax = plt.subplots(v_spaces, 3, figsize=(18 , v_spaces * 6))
+        f, ax = plt.subplots(v_spaces, 1,
+                             figsize=(18 * 1.05 , v_spaces * 12 *1.05),
+                             dpi= 100 * 1.05 * v_spaces)
         ax = ax.flatten()
 
     new_index_year = []
@@ -728,13 +876,13 @@ def plot_monthly_ic_heatmap(mean_monthly_ic, ax=None):
         [new_index_year, new_index_month], names=["year", "month"]
     )
 
-    for a, (periods_num, ic) in zip(ax, mean_monthly_ic.items()):
+    for a, (periods_num, ic) in zip(ax, mean_monthly_ic.iteritems()):
         sns.heatmap(
-            ic.unstack(),
+            ic.unstack().round(3),                           # 20230823 (by MRC) round(3)
             annot=True,
             alpha=1.0,
             center=0.0,
-            annot_kws={"size": 7},
+            annot_kws={"size": 10},                          # 20230823 (by MRC) 圖片上的字太小了，所以7->10。
             linewidths=0.01,
             linecolor="white",
             cmap=cm.coolwarm_r,
@@ -745,13 +893,21 @@ def plot_monthly_ic_heatmap(mean_monthly_ic, ax=None):
 
         a.set_title("Monthly Mean {} Period IC".format(periods_num))
 
+        if cname:
+            _name = sys._getframe(0).f_code.co_name
+            a.set_ylabel(cname[_name]['ylabel'])
+            a.set_xlabel(cname[_name]['xlabel'])
+            a.set_title(cname[_name]['title'].format(periods_num))     
+
     if num_plots < len(ax):
         ax[-1].set_visible(False)
 
     return ax
 
 
-def plot_cumulative_returns(factor_returns, period, freq=None, title=None, ax=None):
+def plot_cumulative_returns(
+    factor_returns, period, freq=None, title=None, ax=None , cname=None
+):
     """
     Plots the cumulative returns of the returns series passed in.
 
@@ -795,11 +951,18 @@ def plot_cumulative_returns(factor_returns, period, freq=None, title=None, ax=No
         xlabel="",
     )
     ax.axhline(1.0, linestyle="-", color="black", lw=1)
+    if cname:
+       _name = sys._getframe(0).f_code.co_name
+       ax.set_ylabel(cname[_name]['ylabel'])
+       ax.set_xlabel(cname[_name]['xlabel'])
+       ax.set_title(cname[_name]['title'].format(period))  
 
     return ax
 
 
-def plot_cumulative_returns_by_quantile(quantile_returns, period, freq=None, ax=None):
+def plot_cumulative_returns_by_quantile(
+    quantile_returns, period, freq=None, ax=None , cname=None
+):
     """
     Plots the cumulative returns of various factor quantiles.
 
@@ -834,7 +997,11 @@ def plot_cumulative_returns_by_quantile(quantile_returns, period, freq=None, ax=
     cum_ret = cum_ret.loc[:, ::-1]  # we want negative quantiles as 'red'
 
     cum_ret.plot(lw=2, ax=ax, cmap=cm.coolwarm)
-    ax.legend()
+
+    # 20230829 (by MRC) put the legend outside the plot
+    ax.legend(loc='upper left', bbox_to_anchor=(1, 1))
+    # ax.legend()
+
     ymin, ymax = cum_ret.min().min(), cum_ret.max().max()
     ax.set(
         ylabel="Log Cumulative Returns",
@@ -850,6 +1017,11 @@ def plot_cumulative_returns_by_quantile(quantile_returns, period, freq=None, ax=
 
     ax.yaxis.set_major_formatter(ScalarFormatter())
     ax.axhline(1.0, linestyle="-", color="black", lw=1)
+    if cname:
+       _name = sys._getframe(0).f_code.co_name
+       ax.set_ylabel(cname[_name]['ylabel'])
+       ax.set_xlabel(cname[_name]['xlabel'])
+       ax.set_title(cname[_name]['title'].format(period))  
 
     return ax
 
@@ -859,7 +1031,7 @@ def plot_quantile_average_cumulative_return(
     by_quantile=False,
     std_bar=False,
     title=None,
-    ax=None,
+    ax=None,    
 ):
     """
     Plots sector-wise mean daily returns for factor quantiles
@@ -956,7 +1128,9 @@ def plot_quantile_average_cumulative_return(
         ax.set(
             ylabel="Mean Return (bps)",
             title=(
-                "Average Cumulative Returns by Quantile" if title is None else title
+                "Average Cumulative Returns by Quantile"
+                if title is None
+                else title
             ),
             xlabel="Periods",
         )

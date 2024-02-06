@@ -7,7 +7,7 @@
 #
 #     http://www.apache.org/licenses/LICENSE-2.0
 #
-# Unless required by applicable law or agreed to in writing, software
+# Unless required by applicable law or agreed to in writing, softwaref
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
@@ -21,7 +21,9 @@ import pandas as pd
 from . import plotting
 from . import performance as perf
 from . import utils
+from . import plot_cn_name_map
 
+cname = plot_cn_name_map.cname
 
 class GridFigure(object):
     """
@@ -31,8 +33,10 @@ class GridFigure(object):
     def __init__(self, rows, cols):
         self.rows = rows
         self.cols = cols
-        self.fig = plt.figure(figsize=(14, rows * 7))
-        self.gs = gridspec.GridSpec(rows, cols, wspace=0.4, hspace=0.3)
+        # self.fig = plt.figure(figsize=(14, rows * 7))                     # 20230829 (by MRC) 因legend調整，故這邊也調整
+        self.fig = plt.figure(figsize=(18, rows * 9))
+        # self.gs = gridspec.GridSpec(rows, cols, wspace=0.4, hspace=0.3)   # 20230829 (by MRC) 因legend調整，故這邊也調整
+        self.gs = gridspec.GridSpec(rows, cols, wspace=0.5, hspace=0.4)
         self.curr_row = 0
         self.curr_col = 0
 
@@ -57,9 +61,11 @@ class GridFigure(object):
         self.fig = None
         self.gs = None
 
-
+@plotting.transfer_chinese(cname)
 @plotting.customize
-def create_summary_tear_sheet(factor_data, long_short=True, group_neutral=False):
+def create_summary_tear_sheet(
+    factor_data, long_short=True, group_neutral=False, set_chinese_name=False, cname=None
+):
     """
     Creates a small summary tear sheet with returns, information, and turnover
     analysis.
@@ -130,13 +136,16 @@ def create_summary_tear_sheet(factor_data, long_short=True, group_neutral=False)
 
     plotting.plot_quantile_statistics_table(factor_data)
 
-    plotting.plot_returns_table(alpha_beta, mean_quant_rateret, mean_ret_spread_quant)
+    plotting.plot_returns_table(
+        alpha_beta, mean_quant_rateret, mean_ret_spread_quant
+    )
 
     plotting.plot_quantile_returns_bar(
         mean_quant_rateret,
         by_group=False,
         ylim_percentiles=None,
         ax=gf.next_row(),
+        cname=cname       # Modified_by_yo 1106
     )
 
     # Information Analysis
@@ -158,7 +167,10 @@ def create_summary_tear_sheet(factor_data, long_short=True, group_neutral=False)
     }
 
     autocorrelation = pd.concat(
-        [perf.factor_rank_autocorrelation(factor_data, period) for period in periods],
+        [
+            perf.factor_rank_autocorrelation(factor_data, period)
+            for period in periods
+        ],
         axis=1,
     )
 
@@ -166,11 +178,10 @@ def create_summary_tear_sheet(factor_data, long_short=True, group_neutral=False)
 
     plt.show()
     gf.close()
-
-
+@plotting.transfer_chinese(cname)
 @plotting.customize
 def create_returns_tear_sheet(
-    factor_data, long_short=True, group_neutral=False, by_group=False
+    factor_data, long_short=True, group_neutral=False, by_group=False, set_chinese_name=False, cname=None
 ):
     """
     Creates a tear sheet for returns analysis of a factor.
@@ -197,7 +208,9 @@ def create_returns_tear_sheet(
         If True, display graphs separately for each group.
     """
 
-    factor_returns = perf.factor_returns(factor_data, long_short, group_neutral)
+    factor_returns = perf.factor_returns(
+        factor_data, long_short, group_neutral
+    )
 
     mean_quant_ret, std_quantile = perf.mean_return_by_quantile(
         factor_data,
@@ -243,17 +256,20 @@ def create_returns_tear_sheet(
     vertical_sections = 2 + fr_cols * 3
     gf = GridFigure(rows=vertical_sections, cols=1)
 
-    plotting.plot_returns_table(alpha_beta, mean_quant_rateret, mean_ret_spread_quant)
+    plotting.plot_returns_table(
+        alpha_beta, mean_quant_rateret, mean_ret_spread_quant
+    )
 
     plotting.plot_quantile_returns_bar(
         mean_quant_rateret,
         by_group=False,
         ylim_percentiles=None,
         ax=gf.next_row(),
+        cname=cname       # Modified_by_yo 1106
     )
 
     plotting.plot_quantile_returns_violin(
-        mean_quant_rateret_bydate, ylim_percentiles=(1, 99), ax=gf.next_row()
+        mean_quant_rateret_bydate, ylim_percentiles=(1, 99), ax=gf.next_row(),cname=cname       # Modified_by_yo 1106
     )
 
     trading_calendar = factor_data.index.levels[0].freq
@@ -274,20 +290,33 @@ def create_returns_tear_sheet(
             + "Portfolio Cumulative Return (1D Period)"
         )
 
+        # Modified_by_yo 1106
+        if cname:
+            cname['plot_cumulative_returns']['title'] =  (
+                                                          "因子加權 "
+                                                          + ("分組中立 " if group_neutral else "")
+                                                          + ("多空對沖 " if long_short else "")
+                                                          + "投資組合累積報酬 (1日 期間)"
+                                            )
+
         plotting.plot_cumulative_returns(
-            factor_returns["1D"], period="1D", title=title, ax=gf.next_row()
+            factor_returns["1D"], period="1D", title=title, ax=gf.next_row(), cname=cname       # Modified_by_yo 1106
         )
 
         plotting.plot_cumulative_returns_by_quantile(
-            mean_quant_ret_bydate["1D"], period="1D", ax=gf.next_row()
+            mean_quant_ret_bydate["1D"], period="1D", ax=gf.next_row(),
+            cname=cname       # Modified_by_yo 1106
         )
 
-    ax_mean_quantile_returns_spread_ts = [gf.next_row() for x in range(fr_cols)]
+    ax_mean_quantile_returns_spread_ts = [
+        gf.next_row() for x in range(fr_cols)
+    ]
     plotting.plot_mean_quantile_returns_spread_time_series(
         mean_ret_spread_quant,
         std_err=std_spread_quant,
         bandwidth=0.5,
         ax=ax_mean_quantile_returns_spread_ts,
+        cname=cname       # Modified_by_yo 1106
     )
 
     plt.show()
@@ -318,19 +347,24 @@ def create_returns_tear_sheet(
         vertical_sections = 1 + (((num_groups - 1) // 2) + 1)
         gf = GridFigure(rows=vertical_sections, cols=2)
 
-        ax_quantile_returns_bar_by_group = [gf.next_cell() for _ in range(num_groups)]
+        ax_quantile_returns_bar_by_group = [
+            gf.next_cell() for _ in range(num_groups)
+        ]
         plotting.plot_quantile_returns_bar(
             mean_quant_rateret_group,
             by_group=True,
             ylim_percentiles=(5, 95),
             ax=ax_quantile_returns_bar_by_group,
+            cname=cname       # Modified_by_yo 1106
         )
         plt.show()
         gf.close()
 
-
+@plotting.transfer_chinese(cname)
 @plotting.customize
-def create_information_tear_sheet(factor_data, group_neutral=False, by_group=False):
+def create_information_tear_sheet(
+    factor_data, group_neutral=False, by_group=False, set_chinese_name=False, cname=None
+):
     """
     Creates a tear sheet for information analysis of a factor.
 
@@ -359,11 +393,11 @@ def create_information_tear_sheet(factor_data, group_neutral=False, by_group=Fal
     gf = GridFigure(rows=vertical_sections, cols=columns_wide)
 
     ax_ic_ts = [gf.next_row() for _ in range(fr_cols)]
-    plotting.plot_ic_ts(ic, ax=ax_ic_ts)
+    plotting.plot_ic_ts(ic, ax=ax_ic_ts, cname=cname)       # Modified_by_yo 1106)
 
     ax_ic_hqq = [gf.next_cell() for _ in range(fr_cols * 2)]
-    plotting.plot_ic_hist(ic, ax=ax_ic_hqq[::2])
-    plotting.plot_ic_qq(ic, ax=ax_ic_hqq[1::2])
+    plotting.plot_ic_hist(ic, ax=ax_ic_hqq[::2], cname=cname)       # Modified_by_yo 1106)
+    plotting.plot_ic_qq(ic, ax=ax_ic_hqq[1::2], cname=cname)       # Modified_by_yo 1106)
 
     if not by_group:
 
@@ -373,22 +407,26 @@ def create_information_tear_sheet(factor_data, group_neutral=False, by_group=Fal
             by_group=False,
             by_time="M",
         )
-        ax_monthly_ic_heatmap = [gf.next_cell() for x in range(fr_cols)]
-        plotting.plot_monthly_ic_heatmap(mean_monthly_ic, ax=ax_monthly_ic_heatmap)
+
+        # 20230823 (by MRC) 圖片上的字太小了，由gf.next_cell()改為gf.next_row()
+        ax_monthly_ic_heatmap = [gf.next_row() for x in range(fr_cols)]
+        plotting.plot_monthly_ic_heatmap(
+            mean_monthly_ic, ax=ax_monthly_ic_heatmap , cname=cname       # Modified_by_yo 1106)
+        )
 
     if by_group:
         mean_group_ic = perf.mean_information_coefficient(
             factor_data, group_adjust=group_neutral, by_group=True
         )
 
-        plotting.plot_ic_by_group(mean_group_ic, ax=gf.next_row())
+        plotting.plot_ic_by_group(mean_group_ic, ax=gf.next_row(), cname=cname)       # Modified_by_yo 1106)
 
     plt.show()
     gf.close()
 
-
+@plotting.transfer_chinese(cname)
 @plotting.customize
-def create_turnover_tear_sheet(factor_data, turnover_periods=None):
+def create_turnover_tear_sheet(factor_data, turnover_periods=None, set_chinese_name=False, cname=None):
     """
     Creates a tear sheet for analyzing the turnover properties of a factor.
 
@@ -415,7 +453,9 @@ def create_turnover_tear_sheet(factor_data, turnover_periods=None):
         ).to_numpy()
         turnover_periods = utils.timedelta_strings_to_integers(input_periods)
     else:
-        turnover_periods = utils.timedelta_strings_to_integers(turnover_periods)
+        turnover_periods = utils.timedelta_strings_to_integers(
+            turnover_periods
+        )
 
     quantile_factor = factor_data["factor_quantile"]
 
@@ -438,7 +478,7 @@ def create_turnover_tear_sheet(factor_data, turnover_periods=None):
         axis=1,
     )
 
-    plotting.plot_turnover_table(autocorrelation, quantile_turnover)
+    plotting.plot_turnover_table(autocorrelation, quantile_turnover)       # Modified_by_yo 1106)
 
     fr_cols = len(turnover_periods)
     columns_wide = 1
@@ -450,23 +490,23 @@ def create_turnover_tear_sheet(factor_data, turnover_periods=None):
         if quantile_turnover[period].isnull().all().all():
             continue
         plotting.plot_top_bottom_quantile_turnover(
-            quantile_turnover[period], period=period, ax=gf.next_row()
+            quantile_turnover[period], period=period, ax=gf.next_row() , cname=cname       # Modified_by_yo 1106)
         )
 
     for period in autocorrelation:
         if autocorrelation[period].isnull().all():
             continue
         plotting.plot_factor_rank_auto_correlation(
-            autocorrelation[period], period=period, ax=gf.next_row()
+            autocorrelation[period], period=period, ax=gf.next_row(), cname=cname       # Modified_by_yo 1106)
         )
 
     plt.show()
     gf.close()
 
-
+@plotting.transfer_chinese(cname)
 @plotting.customize
 def create_full_tear_sheet(
-    factor_data, long_short=True, group_neutral=False, by_group=False
+    factor_data, long_short=True, group_neutral=False, by_group=False, set_chinese_name=False, cname=None
 ):
     """
     Creates a full tear sheet for analysis and evaluating single
@@ -496,12 +536,12 @@ def create_full_tear_sheet(
 
     plotting.plot_quantile_statistics_table(factor_data)
     create_returns_tear_sheet(
-        factor_data, long_short, group_neutral, by_group, set_context=False
+        factor_data, long_short, group_neutral, by_group, set_context=False, set_chinese_name=set_chinese_name, cname=cname
     )
     create_information_tear_sheet(
-        factor_data, group_neutral, by_group, set_context=False
+        factor_data, group_neutral, by_group, set_context=False, set_chinese_name=set_chinese_name, cname=cname
     )
-    create_turnover_tear_sheet(factor_data, set_context=False)
+    create_turnover_tear_sheet(factor_data, set_context=False, set_chinese_name=set_chinese_name, cname=cname)
 
 
 @plotting.customize
@@ -569,7 +609,9 @@ def create_event_returns_tear_sheet(
         ax=gf.next_row(),
     )
     if std_bar:
-        ax_avg_cumulative_returns_by_q = [gf.next_cell() for _ in range(num_quantiles)]
+        ax_avg_cumulative_returns_by_q = [
+            gf.next_cell() for _ in range(num_quantiles)
+        ]
         plotting.plot_quantile_average_cumulative_return(
             avg_cumulative_returns,
             by_quantile=True,
@@ -662,7 +704,9 @@ def create_event_study_tear_sheet(
             by_group=False,
         )
 
-    factor_returns = perf.factor_returns(factor_data, demeaned=False, equal_weight=True)
+    factor_returns = perf.factor_returns(
+        factor_data, demeaned=False, equal_weight=True
+    )
 
     mean_quant_ret, std_quantile = perf.mean_return_by_quantile(
         factor_data, by_group=False, demeaned=long_short
