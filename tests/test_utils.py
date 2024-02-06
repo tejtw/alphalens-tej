@@ -13,11 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pandas as pd
 from distutils.version import StrictVersion
 from unittest import TestCase, skipIf
-
-import pandas as pd
+from parameterized import parameterized
 from numpy import nan
+
 from pandas import (
     Series,
     DataFrame,
@@ -28,9 +29,8 @@ from pandas import (
     concat,
 )
 from pandas.testing import assert_frame_equal, assert_series_equal
-from parameterized import parameterized
 
-from alphalens.utils import (
+from ..utils import (
     get_clean_factor_and_forward_returns,
     compute_forward_returns,
     quantize_factor,
@@ -38,7 +38,9 @@ from alphalens.utils import (
 
 pandas_version = StrictVersion(pd.__version__)
 
-pandas_one_point_zero = StrictVersion("1.0") < pandas_version < StrictVersion("1.1")
+pandas_one_point_zero = (
+    StrictVersion("1.0") < pandas_version < StrictVersion("1.1")
+)
 
 
 class UtilsTestCase(TestCase):
@@ -74,7 +76,9 @@ class UtilsTestCase(TestCase):
 
     def test_compute_forward_returns(self):
         dr = date_range(start="2015-1-1", end="2015-1-3")
-        prices = DataFrame(index=dr, columns=["A", "B"], data=[[1, 1], [1, 2], [2, 1]])
+        prices = DataFrame(
+            index=dr, columns=["A", "B"], data=[[1, 1], [1, 2], [2, 1]]
+        )
         factor = prices.stack()
 
         fp = compute_forward_returns(factor, prices, periods=[1, 2])
@@ -95,7 +99,9 @@ class UtilsTestCase(TestCase):
         )
 
         dr = date_range(start="2015-1-1", end="2015-1-3")
-        factor = DataFrame(index=dr, columns=["A", "B"], data=[[1, 1], [1, 2], [2, 1]])
+        factor = DataFrame(
+            index=dr, columns=["A", "B"], data=[[1, 1], [1, 2], [2, 1]]
+        )
         factor = factor.stack()
 
         fp = compute_forward_returns(factor, prices, periods=[1, 2])
@@ -109,7 +115,9 @@ class UtilsTestCase(TestCase):
 
     def test_compute_forward_returns_non_cum(self):
         dr = date_range(start="2015-1-1", end="2015-1-3")
-        prices = DataFrame(index=dr, columns=["A", "B"], data=[[1, 1], [1, 2], [2, 1]])
+        prices = DataFrame(
+            index=dr, columns=["A", "B"], data=[[1, 1], [1, 2], [2, 1]]
+        )
         factor = prices.stack()
 
         fp = compute_forward_returns(
@@ -311,7 +319,7 @@ class UtilsTestCase(TestCase):
         factor_groups = {"A": 1, "B": 2, "C": 1, "D": 2, "E": 1, "F": 2}
 
         price_data = [
-            [1.10**i, 0.50**i, 3.00**i, 0.90**i, 0.50**i, 1.00**i]
+            [1.10 ** i, 0.50 ** i, 3.00 ** i, 0.90 ** i, 0.50 ** i, 1.00 ** i]
             for i in range(1, 7)
         ]  # 6 days = 3 + 3 fwd returns
 
@@ -383,7 +391,7 @@ class UtilsTestCase(TestCase):
         factor_groups = {"A": 1, "B": 2, "C": 1, "D": 2, "E": 1, "F": 2}
 
         price_data = [
-            [1.10**i, 0.50**i, 3.00**i, 0.90**i, 0.50**i, 1.00**i]
+            [1.10 ** i, 0.50 ** i, 3.00 ** i, 0.90 ** i, 0.50 ** i, 1.00 ** i]
             for i in range(1, 7)
         ]  # 6 days = 3 + 3 fwd returns
 
@@ -454,7 +462,7 @@ class UtilsTestCase(TestCase):
         factor_groups = {"A": 1, "B": 2, "C": 1, "D": 2, "E": 1, "F": 2}
 
         price_data = [
-            [1.10**i, 0.50**i, 3.00**i, 0.90**i, 0.50**i, 1.00**i]
+            [1.10 ** i, 0.50 ** i, 3.00 ** i, 0.90 ** i, 0.50 ** i, 1.00 ** i]
             for i in range(1, 5)
         ]  # 4 days = 3 + 1 fwd returns
 
@@ -487,7 +495,9 @@ class UtilsTestCase(TestCase):
             data=price_data,
         )
         today_open_3h -= today_open_3h * 0.002
-        prices = concat([today_open, today_open_1h, today_open_3h]).sort_index()
+        prices = concat(
+            [today_open, today_open_1h, today_open_3h]
+        ).sort_index()
 
         factor_index = date_range(start=start, end=factor_end, freq="B")
         factor_index.name = "date"
@@ -544,7 +554,7 @@ class UtilsTestCase(TestCase):
         factor_groups = {"A": 1, "B": 2, "C": 1, "D": 2, "E": 1, "F": 2}
 
         price_data = [
-            [1.10**i, 0.50**i, 3.00**i, 0.90**i, 0.50**i, 1.00**i]
+            [1.10 ** i, 0.50 ** i, 3.00 ** i, 0.90 ** i, 0.50 ** i, 1.00 ** i]
             for i in range(1, 9)
         ]
 
@@ -612,7 +622,7 @@ class UtilsTestCase(TestCase):
         factor_groups = {"A": 1, "B": 2, "C": 1, "D": 2, "E": 1, "F": 2}
 
         price_data = [
-            [1.10**i, 0.50**i, 3.00**i, 0.90**i, 0.50**i, 1.00**i]
+            [1.10 ** i, 0.50 ** i, 3.00 ** i, 0.90 ** i, 0.50 ** i, 1.00 ** i]
             for i in range(1, 20)
         ]  # 19 days = 18 + 1 fwd returns
 
@@ -649,9 +659,13 @@ class UtilsTestCase(TestCase):
             data=price_data,
         )
         today_open_3h -= today_open_3h * 0.002
-        prices = concat([today_open, today_open_1h, today_open_3h]).sort_index()
+        prices = concat(
+            [today_open, today_open_1h, today_open_3h]
+        ).sort_index()
 
-        factor_index = date_range(start=start, end=factor_end, freq="B", name="date")
+        factor_index = date_range(
+            start=start, end=factor_end, freq="B", name="date"
+        )
         factor_index = factor_index.drop(holidays)
         factor = DataFrame(
             index=factor_index + Timedelta("9h30m"),
@@ -698,9 +712,6 @@ class UtilsTestCase(TestCase):
         assert_frame_equal(factor_data, expected)
 
         inferred_holidays = factor_data.index.levels[0].freq.holidays
-        inferred_holidays = [
-            Timestamp(d.astype("datetime64[ns]")) for d in inferred_holidays
-        ]
         assert sorted(holidays) == sorted(inferred_holidays)
 
     # todo: breaks on 1.0<=pd.__version<1.1
@@ -715,7 +726,7 @@ class UtilsTestCase(TestCase):
         factor_groups = {"A": 1, "B": 2, "C": 1, "D": 2, "E": 1, "F": 2}
 
         price_data = [
-            [1.10**i, 0.50**i, 3.00**i, 0.90**i, 0.50**i, 1.00**i]
+            [1.10 ** i, 0.50 ** i, 3.00 ** i, 0.90 ** i, 0.50 ** i, 1.00 ** i]
             for i in range(1, 22)
         ]  # 21 days = 18 + 3 fwd returns
 
@@ -782,7 +793,4 @@ class UtilsTestCase(TestCase):
         assert_frame_equal(factor_data, expected)
 
         inferred_holidays = factor_data.index.levels[0].freq.holidays
-        inferred_holidays = [
-            Timestamp(d.astype("datetime64[ns]")) for d in inferred_holidays
-        ]
         assert sorted(holidays) == sorted(inferred_holidays)

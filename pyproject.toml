@@ -1,18 +1,18 @@
 [project]
-name = "alphalens-reloaded"
+name = "alphalens-tej"
 description = "Performance analysis of predictive (alpha) stock factors"
 requires-python = '>=3.8'
 dynamic = ["version"]
 readme = "README.md"
 authors = [
-    { name = 'Quantopian Inc' },
-    { email = 'pm@ml4trading.io' }
+    { name = 'tej' },
+    { email = 'tej@tej.com.tw' }
 ]
 maintainers = [
-    { name = 'Stefan Jansen' },
-    { email = 'pm@ml4trading.io' }
+    { name = 'tej' },
+    { email = 'tej@tej.com.tw' }
 ]
-license = { file = "LICENSE" }
+license = { text = 'Apache-2.0'}
 
 classifiers = [
     'Development Status :: 5 - Production/Stable',
@@ -30,20 +30,17 @@ classifiers = [
 ]
 
 dependencies = [
-    "matplotlib >=1.4.0",
-    "numpy >=1.9.1",
-    "pandas >=1.0.0",
-    "scipy >=0.14.0",
-    "seaborn >=0.6.0",
-    "statsmodels >=0.6.1",
-    "IPython >=3.2.3",
-    "empyrical-reloaded>=0.5.7"
+    "matplotlib",
+    "pandas",
+    "scipy",
+    "seaborn",
+    "statsmodels",
+    "empyrical-reloaded"
 ]
 
 [project.urls]
-homepage = 'https://ml4trading.io'
-repository = 'https://github.com/stefan-jansen/alphalens-reloaded'
-documentation = 'https://alphalens.ml4trading.io'
+homepage = 'https://tquant.tejwin.com/'
+repository = 'https://github.com/tejtw/alphalens-tej'
 
 [build-system]
 requires = [
@@ -94,8 +91,8 @@ exclude = ['tests*']
 
 [tool.setuptools_scm]
 write_to = "src/alphalens/_version.py"
-version_scheme = 'guess-next-dev'
-local_scheme = 'dirty-tag'
+version_scheme = 'no-guess-dev'
+local_scheme = 'no-local-version'
 
 
 [tool.pytest]
@@ -106,7 +103,7 @@ addopts = '-v'
 
 [tool.cibuildwheel]
 test-extras = "test"
-test-command = "pytest -n 2 {package}/tests"
+# test-command = "pytest -n 2 {package}/tests"
 build-verbosity = 3
 
 
@@ -158,6 +155,6 @@ deps =
     pandas14: pandas>=1.4.0,<1.5
     pandas15: pandas>=1.5.0,<1.6
 
-commands =
-    pytest -n 2 --cov={toxinidir}/src --cov-report term  --cov-report=xml --cov-report=html:htmlcov {toxinidir}/tests
-"""
+# commands =
+#    pytest -n 2 --cov={toxinidir}/src --cov-report term  --cov-report=xml --cov-report=html:htmlcov {toxinidir}/tests
+# """
