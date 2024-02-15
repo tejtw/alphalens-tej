@@ -187,13 +187,13 @@ def plot_returns_table(
 def plot_turnover_table(autocorrelation_data, quantile_turnover):
     turnover_table = pd.DataFrame()
     for period in sorted(quantile_turnover.keys()):
-        for quantile, p_data in quantile_turnover[period].iteritems():
+        for quantile, p_data in quantile_turnover[period].items():
             turnover_table.loc[
                 "Quantile {} Mean Turnover ".format(quantile),
                 "{}D".format(period),
             ] = p_data.mean()
     auto_corr = pd.DataFrame()
-    for period, p_data in autocorrelation_data.iteritems():
+    for period, p_data in autocorrelation_data.items():
         auto_corr.loc[
             "Mean Factor Rank Autocorrelation", "{}D".format(period)
         ] = p_data.mean()
@@ -254,7 +254,7 @@ def plot_ic_ts(ic, ax=None, cname=None):
         ax = np.asarray([ax]).flatten()
 
     ymin, ymax = (None, None)
-    for a, (period_num, ic) in zip(ax, ic.iteritems()):
+    for a, (period_num, ic) in zip(ax, ic.items()):
         ic.plot(alpha=0.7, ax=a, lw=0.7, color="steelblue")
         ic.rolling(window=22).mean().plot(
             ax=a, color="forestgreen", lw=2, alpha=0.8
@@ -330,7 +330,7 @@ def plot_ic_hist(ic, ax=None, cname=None):
         f, ax = plt.subplots(v_spaces, 3, figsize=(18, v_spaces * 6))
         ax = ax.flatten()
 
-    for a, (period_num, ic) in zip(ax, ic.iteritems()):
+    for a, (period_num, ic) in zip(ax, ic.items()):
         sns.histplot(ic.replace(np.nan, 0.0), kde=True, ax=a)
         a.set(title="%s Period IC" % period_num, xlabel="IC")
         a.set_xlim([-1, 1])
@@ -395,7 +395,7 @@ def plot_ic_qq(ic, theoretical_dist=stats.norm, ax=None, cname=None):
     else:
         dist_name = "Theoretical"
     
-    for a, (period_num, ic) in zip(ax, ic.iteritems()):
+    for a, (period_num, ic) in zip(ax, ic.items()):
         sm.qqplot(
             ic.replace(np.nan, 0.0).values,
             theoretical_dist,
@@ -631,7 +631,7 @@ def plot_mean_quantile_returns_spread_time_series(
 
         ymin, ymax = (None, None)
         for (i, a), (name, fr_column) in zip(
-            enumerate(ax), mean_returns_spread.iteritems()
+            enumerate(ax), mean_returns_spread.items()
         ):
             stdn = None if std_err is None else std_err[name]
             a = plot_mean_quantile_returns_spread_time_series(
@@ -876,7 +876,7 @@ def plot_monthly_ic_heatmap(mean_monthly_ic, ax=None, cname=None):
         [new_index_year, new_index_month], names=["year", "month"]
     )
 
-    for a, (periods_num, ic) in zip(ax, mean_monthly_ic.iteritems()):
+    for a, (periods_num, ic) in zip(ax, mean_monthly_ic.items()):
         sns.heatmap(
             ic.unstack().round(3),                           # 20230823 (by MRC) round(3)
             annot=True,
