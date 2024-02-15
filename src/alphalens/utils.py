@@ -182,7 +182,7 @@ def quantize_factor(
     if by_group:
         grouper.append("group")
 
-    factor_quantile = factor_data.groupby(grouper)["factor"].apply(
+    factor_quantile = factor_data.groupby(grouper, group_keys=False)["factor"].apply(
         quantile_calc, quantiles, bins, zero_aware, no_raise
     )
     factor_quantile.name = "factor_quantile"
