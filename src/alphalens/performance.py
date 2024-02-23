@@ -74,7 +74,7 @@ def factor_information_coefficient(
     if by_group:
         grouper.append("group")
 
-    ic = factor_data.groupby(grouper).apply(src_ic)
+    ic = factor_data.groupby(grouper , group_keys = False).apply(src_ic) # Modified 20240223 by Han
     if by_group:
         return ic
     else:
@@ -201,12 +201,12 @@ def factor_weights(
     if group_adjust:
         grouper.append("group")
 
-    weights = factor_data.groupby(grouper)["factor"].apply(
+    weights = factor_data.groupby(grouper , group_keys= False)["factor"].apply(
         to_weights, demeaned, equal_weight
-    )
+    ) # Modified 20240223 by Han
 
     if group_adjust:
-        weights = weights.groupby(level="date").apply(to_weights, False, False)
+        weights = weights.groupby(level="date" , group_keys= False).apply(to_weights, False, False) # Modified 20240223 by Han
 
     return weights
 
@@ -254,6 +254,7 @@ def factor_returns(
     weights = factor_weights(factor_data, demeaned, group_adjust, equal_weight)
 
     s = utils.get_forward_returns_columns(factor_data.columns)
+    
     weighted_returns = factor_data[s].multiply(weights, axis=0)
 
     if by_asset:
@@ -622,7 +623,7 @@ def quantile_turnover(quantile_factor, quantile, period=1):
 
     quant_names = quantile_factor[quantile_factor == quantile]
     quant_name_sets = (
-        quant_names.groupby(level=["date"])
+        quant_names.groupby(level=["date"] , group_keys= False ) # Modified 20240223 by Han
         .apply(lambda x: set(x.index.get_level_values("asset")))
         .asfreq(freq)
     )
@@ -892,9 +893,9 @@ def average_cumulative_return_by_quantile(
             # Align cumulative return from different dates to the same index
             # then compute mean and std
             #
-            avgcumret = g_fq.groupby(g_fq).apply(
+            avgcumret = g_fq.groupby(g_fq , group_keys= False).apply(
                 average_cumulative_return, demean_by
-            )
+            ) # Modified 20240223 by Han
             if len(avgcumret) == 0:
                 continue
 
@@ -915,9 +916,9 @@ def average_cumulative_return_by_quantile(
             all_returns = []
             for group, g_data in factor_data.groupby("group"):
                 g_fq = g_data["factor_quantile"]
-                avgcumret = g_fq.groupby(g_fq).apply(
+                avgcumret = g_fq.groupby(g_fq , group_keys= False).apply(
                     cumulative_return_around_event, g_fq
-                )
+                )  # Modified 20240223 by Han
                 all_returns.append(avgcumret)
             q_returns = pd.concat(all_returns, axis=1)
             q_returns = pd.DataFrame(
@@ -926,10 +927,10 @@ def average_cumulative_return_by_quantile(
             return q_returns.unstack(level=1).stack(level=0)
         elif demeaned:
             fq = factor_data["factor_quantile"]
-            return fq.groupby(fq).apply(average_cumulative_return, fq)
+            return fq.groupby(fq , group_keys= False ).apply(average_cumulative_return, fq) # Modified 20240223 by Han
         else:
             fq = factor_data["factor_quantile"]
-            return fq.groupby(fq).apply(average_cumulative_return, None)
+            return fq.groupby(fq, group_keys= False ).apply(average_cumulative_return, None) # Modified 20240223 by Han
 
 
 def factor_cumulative_returns(
