@@ -169,7 +169,7 @@ def plot_returns_table(
     alpha_beta, mean_ret_quantile, mean_ret_spread_quantile
 ):
     returns_table = pd.DataFrame()
-    returns_table = returns_table.append(alpha_beta)
+    returns_table = pd.concat([returns_table , alpha_beta]) # Modified 20240223 by Han
     returns_table.loc["Mean Period Wise Return Top Quantile (bps)"] = (
         mean_ret_quantile.iloc[-1] * DECIMAL_TO_BPS
     )
@@ -219,9 +219,9 @@ def plot_information_table(ic_data):
 
 
 def plot_quantile_statistics_table(factor_data):
-    quantile_stats = factor_data.groupby("factor_quantile").agg(
+    quantile_stats = factor_data.groupby("factor_quantile")["factor"].agg(
         ["min", "max", "mean", "std", "count"]
-    )["factor"]
+    )
     quantile_stats["count %"] = (
         quantile_stats["count"] / quantile_stats["count"].sum() * 100.0
     )
